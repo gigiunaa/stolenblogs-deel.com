@@ -97,17 +97,12 @@ def extract_blog_content(html: str):
     h1 = soup.find("h1")
     title = h1.get_text(strip=True) if h1 else ""
 
-    # Content blocks
-    blocks = []
-    for div in soup.find_all("div", class_=re.compile(r"MuiBox-root")):
-        if div.find(["p", "h2", "h3", "ul", "ol", "li", "img"]):
-            blocks.append(div)
+    # Main article
+    article = soup.find("article")
+    if not article:
+        return title, ""
 
-    wrapper = soup.new_tag("div")
-    for block in blocks:
-        wrapper.append(block)
-
-    article = clean_article(wrapper)
+    article = clean_article(article)
     return title, str(article)
 
 # ------------------------------
