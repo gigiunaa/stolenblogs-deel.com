@@ -97,13 +97,31 @@ def extract_blog_content(html: str):
     h1 = soup.find("h1")
     title = h1.get_text(strip=True) if h1 else ""
 
-    # Main article
-    article = soup.find("article")
-    if not article:
+    # Content blocks – ვეძებთ დიდ MuiBox-root ბლოკებს
+    candidates = []
+    for div in soup.find_all("div", class_=re.compile(r"MuiBox-root")):
+        p_count = len(div.find_all("p"))
+        h_count = len(div.find_all(["h2", "h3", "li"]))
+        if p_count + h_count > 3:   # საკმარისად დიდი ბლოკი
+            candidates.append((p_count + h_count, div))
+
+    if not candidates:
         return title, ""
 
-    article = clean_article(article)
-    return title, str(article)
+    # ავიღოთ ყველაზე დიდი ბლოკი
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    main_container = candidates[0][1]
+
+    # წავშალოთ Deel-ის sidebar/promo სექციები
+    for h5 in main_container.find_all("h5"):
+        if any(word in h5.get_text() for word in ["Deel", "Toolkit", "Employer", "Payroll"]):
+            parent = h5.find_parent("div", class_=re.compile(r"MuiBox-root"))
+            if parent:
+                parent.decompose()
+
+    # გაწმენდა
+    article_clean = clean_article(main_container)
+    return title, str(article_clean)
 
 # ------------------------------
 # API
