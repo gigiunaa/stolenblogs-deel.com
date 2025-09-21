@@ -108,9 +108,15 @@ def extract_blog_content(soup: BeautifulSoup):
                 break
     if not article:
         article = soup.body
-
     if not article:
         return None
+
+    # ✂️ გაჭერი "More resources" ან "Related resources"-დან ქვემოთ
+    stop_node = article.find(["h3", "h2"], string=lambda t: t and ("More resources" in t or "Related resources" in t))
+    if stop_node:
+        for elem in list(stop_node.find_all_next()):
+            elem.decompose()
+        stop_node.decompose()
 
     return clean_article(article)
 
