@@ -97,7 +97,7 @@ def extract_blog_content(html: str):
     h1 = soup.find("h1")
     title = h1.get_text(strip=True) if h1 else ""
 
-    # Content blocks – ვეძებთ დიდ MuiBox-root ბლოკებს
+    # Content blocks – მხოლოდ მთავარი ტექსტი
     candidates = []
     for div in soup.find_all("div", class_=re.compile(r"MuiBox-root")):
         p_count = len(div.find_all("p"))
@@ -108,16 +108,14 @@ def extract_blog_content(html: str):
     if not candidates:
         return title, ""
 
-    # ავიღოთ ყველაზე დიდი ბლოკი
     candidates.sort(key=lambda x: x[0], reverse=True)
     main_container = candidates[0][1]
 
-    # წავშალოთ Deel-ის sidebar/promo სექციები
+    # მოვაშოროთ Deel-ის sidebar / promo ნაწილები
     for h5 in main_container.find_all("h5"):
-        if any(word in h5.get_text() for word in ["Deel", "Toolkit", "Employer", "Payroll"]):
-            parent = h5.find_parent("div", class_=re.compile(r"MuiBox-root"))
-            if parent:
-                parent.decompose()
+        parent = h5.find_parent("div", class_=re.compile(r"MuiBox-root"))
+        if parent:
+            parent.decompose()
 
     # გაწმენდა
     article_clean = clean_article(main_container)
@@ -137,7 +135,6 @@ def scrape_blog():
         resp = requests.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
         resp.raise_for_status()
         html = resp.text
-
         soup = BeautifulSoup(html, "html.parser")
 
         title, article_html = extract_blog_content(html)
@@ -147,24 +144,24 @@ def scrape_blog():
         images = []
         banner_url = None
 
-        # Banner (og:image)
+        # Always take og:image as banner
         og = soup.find("meta", property="og:image")
         if og and og.get("content"):
             banner_url = og["content"].strip()
             if banner_url:
                 images.append(banner_url)
 
-        # Article images
+        # Article images (დაიწყოს image2.png-დან)
         article_soup = BeautifulSoup(article_html, "html.parser")
         article_images = extract_images(article_soup)
         for img in article_images:
             if img not in images:
                 images.append(img)
 
+        # Assign names: image1.png is banner, rest continue
         image_names = [f"image{i+1}.png" for i in range(len(images))]
 
-        # Final HTML
-        banner_html = f'<p><img src="{banner_url}" alt="Banner"/></p>\n' if banner_url else ""
+        banner_html = f'<p><img src="{banner_url}" alt="Banner" /></p>\n' if banner_url else ""
         content_html = f"<h1>{title}</h1>\n{banner_html}{article_html.strip()}"
 
         result = {
