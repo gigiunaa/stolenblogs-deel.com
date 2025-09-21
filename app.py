@@ -93,21 +93,22 @@ def clean_article(article):
 def extract_blog_content(html: str):
     soup = BeautifulSoup(html, "html.parser")
 
+    # Title
     h1 = soup.find("h1")
     title = h1.get_text(strip=True) if h1 else ""
 
-    blocks = soup.find_all("div", class_=re.compile(r"MuiBox-root"))
-    parts = []
-    for block in blocks:
-        if block.find(["p", "h2", "h3", "ul", "ol", "li", "img"]):
-            parts.append(block)
+    # Content blocks
+    blocks = []
+    for div in soup.find_all("div", class_=re.compile(r"MuiBox-root")):
+        if div.find(["p", "h2", "h3", "ul", "ol", "li", "img"]):
+            blocks.append(div)
 
     wrapper = soup.new_tag("div")
-    for part in parts:
-        wrapper.append(part)
+    for block in blocks:
+        wrapper.append(block)
 
     article = clean_article(wrapper)
-    return title, article
+    return title, str(article)
 
 # ------------------------------
 # API
@@ -126,28 +127,32 @@ def scrape_blog():
 
         soup = BeautifulSoup(html, "html.parser")
 
-        title, article = extract_blog_content(html)
-        if not article:
+        title, article_html = extract_blog_content(html)
+        if not article_html:
             return Response("Could not extract blog content", status=422)
 
         images = []
         banner_url = None
 
+        # Banner (og:image)
         og = soup.find("meta", property="og:image")
         if og and og.get("content"):
             banner_url = og["content"].strip()
             if banner_url:
                 images.append(banner_url)
 
-        article_images = extract_images(article)
+        # Article images
+        article_soup = BeautifulSoup(article_html, "html.parser")
+        article_images = extract_images(article_soup)
         for img in article_images:
             if img not in images:
                 images.append(img)
 
         image_names = [f"image{i+1}.png" for i in range(len(images))]
 
+        # Final HTML
         banner_html = f'<p><img src="{banner_url}" alt="Banner"/></p>\n' if banner_url else ""
-        content_html = f"<h1>{title}</h1>\n{banner_html}{str(article).strip()}"
+        content_html = f"<h1>{title}</h1>\n{banner_html}{article_html.strip()}"
 
         result = {
             "title": title,
