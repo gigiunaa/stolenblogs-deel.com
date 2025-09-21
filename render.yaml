@@ -1,11 +1,15 @@
 services:
   - type: web
-    name: deel-blog-scraper
-    env: docker
+    name: stolenblogs-deel-com
+    env: python
     plan: free
-    branch: main
-    autoDeploy: true
-    dockerfilePath: ./Dockerfile
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers=2 --threads=4 --timeout=120
     envVars:
-      - key: PORT
-        value: 5000
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      # სურვილისამებრ — თუ გამოიყენებ HTML→Image-ს
+      # - key: HCTI_USER_ID
+      #   sync: false
+      # - key: HCTI_API_KEY
+      #   sync: false
