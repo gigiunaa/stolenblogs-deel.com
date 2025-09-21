@@ -19,8 +19,6 @@ CORS(app)
 # ------------------------------
 def extract_images(container):
     image_urls = set()
-
-    # <img> + lazy attributes + srcset
     for img in container.find_all("img"):
         src = (
             img.get("src")
@@ -37,7 +35,6 @@ def extract_images(container):
             if src.startswith(("http://", "https://")):
                 image_urls.add(src)
 
-    # <source srcset="...">
     for source in container.find_all("source"):
         srcset = source.get("srcset")
         if srcset:
@@ -47,7 +44,6 @@ def extract_images(container):
             if first.startswith(("http://", "https://")):
                 image_urls.add(first)
 
-    # style="background-image:url(...)"
     for tag in container.find_all(style=True):
         style = tag["style"]
         for match in re.findall(r"url\((.*?)\)", style):
@@ -63,11 +59,9 @@ def extract_images(container):
 # Helper: HTML გაწმენდა
 # ------------------------------
 def clean_article(article):
-    # წაშალე script/style/svg/noscript
     for tag in article(["script", "style", "svg", "noscript"]):
         tag.decompose()
 
-    # გაასუფთავე ატრიბუტები
     for tag in article.find_all(True):
         if tag.name not in ["p", "h1", "h2", "h3", "ul", "ol", "li",
                             "img", "strong", "em", "b", "i", "a"]:
@@ -84,10 +78,8 @@ def clean_article(article):
             )
             if not src and tag.get("srcset"):
                 src = tag["srcset"].split(",")[0].split()[0]
-
             if src and src.startswith("//"):
                 src = "https:" + src
-
             alt = tag.get("alt", "").strip() or "Image"
             tag.attrs = {"src": src or "", "alt": alt}
         else:
@@ -101,18 +93,15 @@ def clean_article(article):
 def extract_blog_content(html: str):
     soup = BeautifulSoup(html, "html.parser")
 
-    # სათაური <h1>
     h1 = soup.find("h1")
     title = h1.get_text(strip=True) if h1 else ""
 
-    # მოძებნე ყველა MuiBox-root ბლოკი სადაც არის ტექსტური ელემენტი
     blocks = soup.find_all("div", class_=re.compile(r"MuiBox-root"))
     parts = []
     for block in blocks:
         if block.find(["p", "h2", "h3", "ul", "ol", "li", "img"]):
             parts.append(block)
 
-    # გააერთიანე ერთ div-ში
     wrapper = soup.new_tag("div")
     for part in parts:
         wrapper.append(part)
@@ -137,32 +126,26 @@ def scrape_blog():
 
         soup = BeautifulSoup(html, "html.parser")
 
-        # Title + article
         title, article = extract_blog_content(html)
         if not article:
             return Response("Could not extract blog content", status=422)
 
-        # Images
         images = []
         banner_url = None
 
-        # 1) Banner (og:image) -> image1.png
         og = soup.find("meta", property="og:image")
         if og and og.get("content"):
             banner_url = og["content"].strip()
             if banner_url:
                 images.append(banner_url)
 
-        # 2) Article images
         article_images = extract_images(article)
         for img in article_images:
             if img not in images:
                 images.append(img)
 
-        # 3) Naming
         image_names = [f"image{i+1}.png" for i in range(len(images))]
 
-        # HTML ამოცემა: <h1> + ბანერი + article
         banner_html = f'<p><img src="{banner_url}" alt="Banner"/></p>\n' if banner_url else ""
         content_html = f"<h1>{title}</h1>\n{banner_html}{str(article).strip()}"
 
@@ -179,7 +162,7 @@ def scrape_blog():
         return Response(f"Error: {str(e)}", status=500)
 
 # ------------------------------
-# Run
+# Run (local only)
 # ------------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
